@@ -14,7 +14,7 @@ detect_device_type () {
   if [[ "$CHASSIS" =~ ^(8|9|10|11)$ ]]; then
   
   # IF THE DEVICE IS A MOBILE DEVICE WE CHECK IF A BATTERY TRULY EXISTS AS SOME USERS TAKE THEM OUT
-  if upower -e | grep -E 'BAT'; then
+  if upower -e | grep -qE 'BAT'; then
   echo "Device has a battery"
   DEVICE_TYPE=battery
   fi
@@ -96,7 +96,7 @@ cache_check () {
   if [[ "$DEVICE_TYPE" == "battery" ]]; then
   
   # WE RUN A BATTERY CHECK TO SEE IF THE USER STILL HAS THE BATTERY INSIDE THEIR DEVICE AS BATTERIES CAN BE TAKEN OUT AT LATER DATES
-  if upower -e | grep -E 'BAT'; then
+  if upower -e | grep -qE 'BAT'; then
   echo "Detected device type"
   update_logic
   
@@ -106,10 +106,18 @@ cache_check () {
   update_logic
   fi
   
-  # IF THE CACHE SAYS THE DEVICE IS "no_battery" WE RUN "update_logic"
   elif [[ "$DEVICE_TYPE" == "no_battery" ]]; then
+  
+  # IF WE DETECT A BATTERY ON A "no_battery" DEVICE WE RE-DETECT AS THE USE LIKELY PUT A BATTERY IN THEIR MOBILE DEVICE 
+  if upower -e | grep -qE 'BAT'; then
+  echo "Detected a new battery, re-caching.."
+  detect_device_type
+  
+  # IF THERE ISN'T ANY BATTERY WE JUST RUN "update_logic"
+  else
   echo "Detected device type"
   update_logic
+  fi
   
   # IF THE CACHE FILE HAS ANYTHING BUT "battery" OR "no_battery" OR THE FILE DOESN'T EXIST, WE RE-DETECTED THE DEVICE TYPE
   else
