@@ -2,76 +2,120 @@
 
 # THE UPDATE COMMAND
 tu_dup() {
-    transactional-update cleanup ${UPDATE_METHOD} reboot
-}
-
-
-# WE CREATE A CACHE FILE TO REMEMBER IF THE DEVICE IS A LAPTOP NOT.
-CACHE_FILE="/var/cache/ac-detect/ac-detect.conf"
+  transactional-update cleanup ${UPDATE_METHOD} reboot
+  }
 
 # DETECTION IF THE DEVICE IS A LAPTOP OR NOT
 detect_device_type () {
+  
+  # WE DETECT WHAT KIND OF DEVICE THIS IS
+  echo "Detecting device type"
   CHASSIS=$(< /sys/class/dmi/id/chassis_type)
   if [[ "$CHASSIS" =~ ^(8|9|10|11)$ ]]; then
-    DEVICE_TYPE=laptop
+  
+  # IF THE DEVICE IS A MOBILE DEVICE WE CHECK IF A BATTERY TRULY EXISTS AS SOME USERS TAKE THEM OUT
+  if upower -e | grep -E 'BAT'; then
+  echo "Device has a battery"
+  DEVICE_TYPE=battery
+  fi
     
-  # IF THE DEVCIE ISN'T A LAPTOP IS GETS THE "non_battery" DEVICE TYPE  
+  # IF THE DEVICE ISN'T A BATTERY DEVICE IT GETS THE "no_battery" DEVICE TYPE  
   else 
-    DEVICE_TYPE=non_battery
+  echo "Device doesn't have a battery"
+  DEVICE_TYPE=no_battery
   fi
 
-  # WE WRITE TO CACHE WHAT KIND OF DEVICE THIS WAS SO WE DON'T HAVE TO REDETECT
+  # WE WRITE TO CACHE WHAT KIND OF DEVICE THIS WAS SO WE DON'T HAVE TO RE-DETECT EVERY RUN
+  echo "Saving device type to cache"
   mkdir -p "$(dirname "$CACHE_FILE")"
   echo "$DEVICE_TYPE" > "$CACHE_FILE"
-}
-
-
-# IF CACHE EXISTS WE READ THE DEVICE TYPE FROM IT INSTEAD OF RE-DETECTING
-if [[ -f "$CACHE_FILE" ]]; then
-  DEVICE_TYPE=$(< $CACHE_FILE)
-  else
-  detect_device_type
-  fi
   
-  # IF THE CACHE FILE HAS ANYTHING OTHER THAN "laptop OR "non_battery" WE REDETECT IT.
-  if [[ "$DEVICE_TYPE" != "laptop" && "$DEVICE_TYPE" != "non_battery" ]]; then
-  detect_device_type
-  fi
+  # ONCE EVERYTHING IS READY WE JUST RUN update_logic
+  update_logic
+  }
 
-# IF DEVICE ISN'T A LAPTOP, JUST UPDATE
-if [[ "$DEVICE_TYPE" == "non_battery" ]]; then
-    tu_dup
+# THIS JUST DETERMINES WHAT TO DO ONCE THE TYPE OF DEVICE HAS BEEN ESTABLISHED
+update_logic () {
 
+  echo "Starting updater"
 
-# IF THE DEVICE IS LAPTOP WE CHECK THE BATTERY STATE, IF AC IS PLUGGED IN WE UPDATE
-else
-  if [[ "$DEVICE_TYPE" == "laptop" ]]; then
+  # IF DEVICE IS A "no_battery", JUST UPDATE
+  if [[ "$DEVICE_TYPE" == "no_battery" ]]; then
+  tu_dup
+
+  # IF THE DEVICE HAS A BETTERY WE CHECK THE BATTERY STATE
+  elif [[ "$DEVICE_TYPE" == "battery" ]]; then
   
-  # WE DYNAMICALLY FIND THE BATTERY PATH THEN MEASURE IT'S STATE
-  BATTERY_PATH=$(upower -e | grep -i 'BAT')
+  # WE DYNAMICALLY FIND THE BATTERY PATH THEN MEASURE IF IT'S ON AC POWER OR NOT
+  BATTERY_PATH=$(upower -e | grep -E 'BAT')
   STATE=`upower -i $BATTERY_PATH | awk '/state:/ {print $2}'`
-  
+  fi
+   
   # IF ITS ON AC WE UPDATE
   if [[ "$STATE" =~ ^(charging|pending-charge|fully-charged)$ ]]; then
+  echo "Device is plugged in, starting update"
   tu_dup
+  fi
   
-  
-# IF THE LAPTOP WASN'T PLUGGED INTO AC WE WAIT FOR AC
-else
-  echo "Waiting for AC power"
+  # IF AC IS UNPLUGGED WE WAIT FOR AC POWER
+  if [[ "$STATE" == "discharging" ]]; then
+  wait_ac
+  fi
+  }
+
+# IF THE DEVICE WASN'T PLUGGED INTO AC WE WAIT FOR AC
+wait_ac () {
+  echo "Device is unplugged, waiting for AC power"
   gdbus monitor --system --dest org.freedesktop.UPower --object-path /org/freedesktop/UPower/devices/battery_BAT0 | grep -m1 --line-buffered -oE "'State': <uint32 [^>]+>" | while read -r line; do
   
   # ONCE AC IS DETECTED THE UPDATE TRIGGERS
   if [[ "$line" =~ ("'State': <uint32 1>"|"'State': <uint32 4>"|"'State': <uint32 5>") ]]; then
+  echo "Device is plugged in, starting update"
   tu_dup
+  fi
   
   # GDBUS HAS TO BE KILLED FOR THE SCRIPT TO EXIT BUT I DON'T LIKE THIS SOLUTION
   pkill -P $$ gdbus
-  
   break
+  done
+  }
+
+# WE CHECK IF CACHE EXISTS, WE READ THE DEVICE TYPE FROM IT INSTEAD OF RE-DETECTING
+cache_check () {
+
+  # WE CREATE A CACHE FILE TO REMEMBER IF THE DEVICE HAS A BATTERY OR NOT
+  CACHE_FILE="/var/cache/ac-detect/ac-detect.conf"
   
-fi
-done
-fi
-fi
-fi
+  # WE CHECK THE CACHE FILE EXISTS
+  if [[ -f "$CACHE_FILE" ]]; then
+  echo "Detected cache file"
+  DEVICE_TYPE=$(< $CACHE_FILE)
+  fi
+  
+  # IF THE CACHE FILE HAS "battery" OR "no_battery" SET WE RUN "update_logic"
+  if [[ "$DEVICE_TYPE" == "battery" ]]; then
+  
+  # WE RUN A BATTERY CHECK TO SEE IF THE USER STILL HAS THE BATTERY INSIDE THEIR DEVICE AS BATTERIES CAN BE TAKEN OUT AT LATER DATES
+  if upower -e | grep -E 'BAT'; then
+  echo "Detected device type"
+  update_logic
+  
+  # IF NO BATTERY WAS FOUND WE RE-DETECT
+  else
+  echo "No battery found re-detecting.."
+  update_logic
+  fi
+  
+  # IF THE CACHE SAYS THE DEVICE IS "no_battery" WE RUN "update_logic"
+  elif [[ "$DEVICE_TYPE" == "no_battery" ]]; then
+  echo "Detected device type"
+  update_logic
+  
+  # IF THE CACHE FILE HAS ANYTHING BUT "battery" OR "no_battery" OR THE FILE DOESN'T EXIST, WE RE-DETECTED THE DEVICE TYPE
+  else
+  echo "Device type unknown starting detection..."
+  detect_device_type
+  fi
+  }
+  
+cache_check
