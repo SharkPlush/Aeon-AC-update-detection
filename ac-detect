@@ -20,6 +20,10 @@ detect_device_type () {
   if upower -e | grep -qE 'BAT'; then
   echo "Device has a battery"
   DEVICE_TYPE=battery
+  
+  else
+  echo "Mobile device detected without battery"
+  DEVICE_TYPE=no_battery
   fi
     
   # IF THE DEVICE ISN'T A BATTERY DEVICE IT GETS THE "no_battery" DEVICE TYPE  
@@ -45,9 +49,10 @@ update_logic () {
   # IF DEVICE IS A "no_battery", JUST UPDATE
   if [[ "$DEVICE_TYPE" == "no_battery" ]]; then
   tu_dup
+  fi
 
-  # IF THE DEVICE HAS A BETTERY WE CHECK THE BATTERY STATE
-  elif [[ "$DEVICE_TYPE" == "battery" ]]; then
+  # IF THE DEVICE HAS A BATTERY WE CHECK THE BATTERY STATE
+  if [[ "$DEVICE_TYPE" == "battery" ]]; then
   
   # WE DYNAMICALLY FIND THE BATTERY PATH THEN MEASURE IF IT'S ON AC POWER OR NOT
   BATTERY_PATH=$(upower -e | grep -E 'BAT')
@@ -58,10 +63,9 @@ update_logic () {
   if [[ "$STATE" =~ ^(charging|pending-charge|fully-charged)$ ]]; then
   echo "Device is plugged in, starting update"
   tu_dup
-  fi
   
   # IF AC IS UNPLUGGED WE WAIT FOR AC POWER
-  if [[ "$STATE" == "discharging" ]]; then
+  elif [[ "$STATE" == "discharging" ]]; then
   wait_ac
   fi
   }
@@ -107,7 +111,7 @@ cache_check () {
   # IF THE CACHE FILE HAS "no_battery" WE CHECK FOR A BATTERY AND RUN "update_logic"
   elif [[ "$DEVICE_TYPE" == "no_battery" ]]; then
   
-  # IF WE DETECT A BATTERY ON A "no_battery" DEVICE WE RE-DETECT AS THE USE LIKELY PUT A BATTERY IN THEIR MOBILE DEVICE 
+  # IF WE DETECT A BATTERY ON A "no_battery" DEVICE WE RE-DETECT AS THE USER LIKELY PUT A BATTERY IN THEIR MOBILE DEVICE 
   if upower -e | grep -qE 'BAT'; then
   echo "Detected a new battery, re-caching.."
   detect_device_type
