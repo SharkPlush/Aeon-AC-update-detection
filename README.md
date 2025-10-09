@@ -8,7 +8,7 @@ This doesn't use polling so the script isn't draining your battery in the backro
 
 Main features:
  
- - Technically PC users can use this if they want the script has battery detection.
+ - This can be used on any device including PC as it has detections for battery and none battery devices, so this is universal.
  - No polling.
  - If you take your battery in and out the script will detect this and adjust accordingly.
 
