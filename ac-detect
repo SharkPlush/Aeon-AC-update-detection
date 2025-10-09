@@ -1,0 +1,77 @@
+#!/bin/bash
+
+# THE UPDATE COMMAND
+tu_dup() {
+    transactional-update cleanup ${UPDATE_METHOD} reboot
+}
+
+
+# WE CREATE A CACHE FILE TO REMEMBER IF THE DEVICE IS A LAPTOP NOT.
+CACHE_FILE="/var/cache/ac-detect/ac-detect.conf"
+
+# DETECTION IF THE DEVICE IS A LAPTOP OR NOT
+detect_device_type () {
+  CHASSIS=$(< /sys/class/dmi/id/chassis_type)
+  if [[ "$CHASSIS" =~ ^(8|9|10|11)$ ]]; then
+    DEVICE_TYPE=laptop
+    
+  # IF THE DEVCIE ISN'T A LAPTOP IS GETS THE "non_battery" DEVICE TYPE  
+  else 
+    DEVICE_TYPE=non_battery
+  fi
+
+  # WE WRITE TO CACHE WHAT KIND OF DEVICE THIS WAS SO WE DON'T HAVE TO REDETECT
+  mkdir -p "$(dirname "$CACHE_FILE")"
+  echo "$DEVICE_TYPE" > "$CACHE_FILE"
+}
+
+
+# IF CACHE EXISTS WE READ THE DEVICE TYPE FROM IT INSTEAD OF RE-DETECTING
+if [[ -f "$CACHE_FILE" ]]; then
+  DEVICE_TYPE=$(< $CACHE_FILE)
+  else
+  detect_device_type
+  fi
+  
+  # IF THE CACHE FILE HAS ANYTHING OTHER THAN "laptop OR "non_battery" WE REDETECT IT.
+  if [[ "$DEVICE_TYPE" != "laptop" && "$DEVICE_TYPE" != "non_battery" ]]; then
+  detect_device_type
+  fi
+
+# IF DEVICE ISN'T A LAPTOP, JUST UPDATE
+if [[ "$DEVICE_TYPE" == "non_battery" ]]; then
+    tu_dup
+
+
+# IF THE DEVICE IS LAPTOP WE CHECK THE BATTERY STATE, IF AC IS PLUGGED IN WE UPDATE
+else
+  if [[ "$DEVICE_TYPE" == "laptop" ]]; then
+  
+  # WE DYNAMICALLY FIND THE BATTERY PATH THEN MEASURE IT'S STATE
+  BATTERY_PATH=$(upower -e | grep -i 'BAT')
+  STATE=`upower -i $BATTERY_PATH | awk '/state:/ {print $2}'`
+  
+  # IF ITS ON AC WE UPDATE
+  if [[ "$STATE" =~ ^(charging|pending-charge|fully-charged)$ ]]; then
+  tu_dup
+  
+  
+# IF THE LAPTOP WASN'T PLUGGED INTO AC WE WAIT FOR AC
+else
+  echo "Waiting for AC power"
+  gdbus monitor --system --dest org.freedesktop.UPower --object-path /org/freedesktop/UPower/devices/battery_BAT0 | grep -m1 --line-buffered -oE "'State': <uint32 [^>]+>" | while read -r line; do
+  
+  # ONCE AC IS DETECTED THE UPDATE TRIGGERS
+  if [[ "$line" =~ ("'State': <uint32 1>"|"'State': <uint32 4>"|"'State': <uint32 5>") ]]; then
+  tu_dup
+  
+  # GDBUS HAS TO BE KILLED FOR THE SCRIPT TO EXIT BUT I DON'T LIKE THIS SOLUTION
+  pkill -P $$ gdbus
+  
+  break
+  
+fi
+done
+fi
+fi
+fi
