@@ -13,3 +13,5 @@ Main features:
  - If you take your battery in and out the script will detect this and adjust accordingly.
 
 To install run ./installer.sh with sudo.
+
+To uninstall run ./uninstaller.sh with sudo.
