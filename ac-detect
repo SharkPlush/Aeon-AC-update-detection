@@ -8,7 +8,7 @@ tu_dup() {
 # DETECTION IF THE DEVICE IS A LAPTOP OR NOT
 detect_device_type () {
   
-  # WE DETECT WHAT KIND OF DEVICE THIS IS
+  # WE DETECT WHAT KIND OF DEVICE THIS IS (Technically we don't have to detect the type of device since we check for a battery anyways but I'd rather have the check for extra accuracy.)
   echo "Detecting device type"
   CHASSIS=$(< /sys/class/dmi/id/chassis_type)
   if [[ "$CHASSIS" =~ ^(8|9|10|11)$ ]]; then
@@ -92,7 +92,7 @@ cache_check () {
   DEVICE_TYPE=$(< $CACHE_FILE)
   fi
   
-  # IF THE CACHE FILE HAS "battery" OR "no_battery" SET WE RUN "update_logic"
+  # IF THE CACHE FILE HAS "battery" WE CHECK FOR A BATTERY AND RUN "update_logic"
   if [[ "$DEVICE_TYPE" == "battery" ]]; then
   
   # WE RUN A BATTERY CHECK TO SEE IF THE USER STILL HAS THE BATTERY INSIDE THEIR DEVICE AS BATTERIES CAN BE TAKEN OUT AT LATER DATES
@@ -105,7 +105,8 @@ cache_check () {
   echo "No battery found re-detecting.."
   update_logic
   fi
-  
+
+  # IF THE CACHE FILE HAS "no_battery" WE CHECK FOR A BATTERY AND RUN "update_logic"
   elif [[ "$DEVICE_TYPE" == "no_battery" ]]; then
   
   # IF WE DETECT A BATTERY ON A "no_battery" DEVICE WE RE-DETECT AS THE USE LIKELY PUT A BATTERY IN THEIR MOBILE DEVICE 
