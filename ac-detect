@@ -66,18 +66,13 @@ update_logic () {
 # IF THE DEVICE WASN'T PLUGGED INTO AC WE WAIT FOR AC
 wait_ac () {
   echo "Device is unplugged, waiting for AC power"
-  gdbus monitor --system --dest org.freedesktop.UPower --object-path /org/freedesktop/UPower/devices/battery_BAT0 | grep -m1 --line-buffered -oE "'State': <uint32 [^>]+>" | while read -r line; do
-  
+  while read -r line; do
+
   # ONCE AC IS DETECTED THE UPDATE TRIGGERS
-  if [[ "$line" =~ ("'State': <uint32 1>"|"'State': <uint32 4>"|"'State': <uint32 5>") ]]; then
   echo "Device is plugged in, starting update"
   tu_dup
-  fi
-  
-  # GDBUS HAS TO BE KILLED FOR THE SCRIPT TO EXIT BUT I DON'T LIKE THIS SOLUTION
-  pkill -P $$ gdbus
   break
-  done
+  done < <(gdbus monitor --system --dest org.freedesktop.UPower --object-path $BATTERY_PATH | grep -m1 -oE "'State': <uint32 (1|4|5)>")
   }
 
 # WE CHECK IF CACHE EXISTS, WE READ THE DEVICE TYPE FROM IT INSTEAD OF RE-DETECTING
