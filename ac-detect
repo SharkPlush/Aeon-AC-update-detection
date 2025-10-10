@@ -17,7 +17,8 @@ detect_device_type () {
   if [[ "$CHASSIS" =~ ^(8|9|10|11)$ ]]; then
   
   # IF THE DEVICE IS A MOBILE DEVICE WE CHECK IF A BATTERY TRULY EXISTS AS SOME USERS TAKE THEM OUT
-  if upower -e | grep -qE 'BAT'; then
+  BATTERY_PATH=$(upower -e | grep -E 'BAT')
+  if [[ -n "$BATTERY_PATH" ]]; then
   echo "Device has a battery"
   DEVICE_TYPE=battery
   
@@ -54,9 +55,8 @@ update_logic () {
   # IF THE DEVICE HAS A BATTERY WE CHECK THE BATTERY STATE
   if [[ "$DEVICE_TYPE" == "battery" ]]; then
   
-  # WE DYNAMICALLY FIND THE BATTERY PATH THEN MEASURE IF IT'S ON AC POWER OR NOT
-  BATTERY_PATH=$(upower -e | grep -E 'BAT')
-  STATE=`upower -i $BATTERY_PATH | awk '/state:/ {print $2}'`
+  # WE MEASURE IF THE BATTERY IS ON AC POWER OR NOT
+  STATE=$(upower -i $BATTERY_PATH | awk '/state:/ {print $2}')
   fi
    
   # IF ITS ON AC WE UPDATE
@@ -91,28 +91,30 @@ cache_check () {
   # WE CHECK THE CACHE FILE EXISTS
   if [[ -f "$CACHE_FILE" ]]; then
   echo "Detected cache file"
-  DEVICE_TYPE=$(< $CACHE_FILE)
+  DEVICE_TYPE=$(< "$CACHE_FILE")
   fi
   
   # IF THE CACHE FILE HAS "battery" WE CHECK FOR A BATTERY AND RUN "update_logic"
   if [[ "$DEVICE_TYPE" == "battery" ]]; then
   
   # WE RUN A BATTERY CHECK TO SEE IF THE USER STILL HAS THE BATTERY INSIDE THEIR DEVICE AS BATTERIES CAN BE TAKEN OUT AT LATER DATES
-  if upower -e | grep -qE 'BAT'; then
+  BATTERY_PATH=$(upower -e | grep -E 'BAT')
+  if [[ -n "$BATTERY_PATH" ]]; then
   echo "Detected device type"
   update_logic
   
   # IF NO BATTERY WAS FOUND WE RE-DETECT
   else
   echo "No battery found re-detecting.."
-  update_logic
+  detect_device_type
   fi
 
   # IF THE CACHE FILE HAS "no_battery" WE CHECK FOR A BATTERY AND RUN "update_logic"
   elif [[ "$DEVICE_TYPE" == "no_battery" ]]; then
   
   # IF WE DETECT A BATTERY ON A "no_battery" DEVICE WE RE-DETECT AS THE USER LIKELY PUT A BATTERY IN THEIR MOBILE DEVICE 
-  if upower -e | grep -qE 'BAT'; then
+  BATTERY_PATH=$(upower -e | grep -E 'BAT')
+  if [[ -n "$BATTERY_PATH" ]]; then
   echo "Detected a new battery, re-caching.."
   detect_device_type
   
