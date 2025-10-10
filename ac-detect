@@ -12,19 +12,19 @@ detect_device_type () {
   BATTERY_PATH=$(upower -e | grep -E 'BAT')
   if [[ -n "$BATTERY_PATH" ]]; then
   echo "Device has a battery"
-  DEVICE_TYPE=battery
+  DEVICE_TYPE="battery"
   update_logic
   
   else
   echo "Mobile device detected without battery"
-  DEVICE_TYPE=no_battery
+  DEVICE_TYPE="no_battery"
   update_logic
   fi
     
   # IF THE DEVICE ISN'T A BATTERY DEVICE IT GETS THE "no_battery" DEVICE TYPE  
   else 
   echo "Device doesn't have a battery"
-  DEVICE_TYPE=no_battery
+  DEVICE_TYPE="no_battery"
   update_logic
   fi
   }
@@ -43,7 +43,7 @@ update_logic () {
   if [[ "$DEVICE_TYPE" == "battery" ]]; then
   
   # WE MEASURE IF THE BATTERY IS ON AC POWER OR NOT
-  STATE=$(upower -i $BATTERY_PATH | awk '/state:/ {print $2}')
+  STATE=$(upower -i "$BATTERY_PATH" | awk '/state:/ {print $2}')
   fi
    
   # IF ITS ON AC WE UPDATE
@@ -61,14 +61,14 @@ update_logic () {
 wait_ac () {
   echo "Device is unplugged, waiting for AC power"
   while read line; do
-  if [[ "$line" =~ ("'State': <uint32 1>"|"'State': <uint32 4>"|"'State': <uint32 5>") ]]; then
+  if [[ "$line" =~ ^("'State': <uint32 1>"|"'State': <uint32 4>"|"'State': <uint32 5>")$ ]]; then
 
   # ONCE AC IS DETECTED THE UPDATE TRIGGERS
   echo "Device is plugged in, starting update"
   tu_dup
   break
   fi
-  done < <(gdbus monitor --system --dest org.freedesktop.UPower --object-path $BATTERY_PATH | grep -m1 -oE "'State': <uint32 (1|4|5)>")
+  done < <(gdbus monitor --system --dest org.freedesktop.UPower --object-path "$BATTERY_PATH" | grep -m1 -oE "'State': <uint32 (1|4|5)>")
   }
   
 # THE UPDATE COMMAND
