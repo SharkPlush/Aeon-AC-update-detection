@@ -14,6 +14,10 @@ Main features:
  - Good battery detection, if you remove the battery from your device the script will know. If you put the battery back into your device it'll know!
  - No polling.
 
+ TODO:
+
+ - Support devices with multiple batteries though I have no idea how they work.
+
 To install run `sudo ./installer.sh`
 
 To uninstall run `sudo ./uninstaller.sh`
