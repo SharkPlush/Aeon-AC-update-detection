@@ -16,7 +16,8 @@ Main features:
 
  TODO:
 
- - Support devices with multiple batteries though I have no idea how they work.
+ - Support devices with multiple batteries though I have no idea how they work. (In beta)
+   - If someone can, please help me test dual battery devices as I don't have one! You can open new issues here or contact me directly on Discord: SharkPlushy Matrix: @blahajshark:matrix.org
 
 To install run `sudo ./installer.sh`
 
