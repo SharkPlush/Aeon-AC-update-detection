@@ -17,6 +17,7 @@ Main features:
  TODO:
 
  - Support devices with multiple batteries though I have no idea how they work.
+   - In beta https://github.com/SharkPlush/Aeon-AC-update-detection/tree/Multi-Battery-Beta (read the desc on the beta page)
 
 To install run `sudo ./installer.sh`
 
