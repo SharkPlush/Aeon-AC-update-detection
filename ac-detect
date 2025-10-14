@@ -26,9 +26,9 @@ detect_device_type () {
   echo "Device has dual batteries"
   DEVICE_TYPE="dual_battery"
   update_logic_dual_bat
-  
-  # IF THE DEVICE IS A MOBILE DEVICE BUT WITHOUT A BATTERY WE SET "DEVICE_TYPE" TO "no_battery"
-  else
+
+  # IF THE DEVICE IS A MOBILE DEVICE BUT WITHOUT A BATTERY WE SET "DEVICE_TYPE" TO "no_battery" 
+  elif
   echo "Mobile device detected without battery"
   DEVICE_TYPE="no_battery"
   update_logic
@@ -92,6 +92,7 @@ update_logic_dual_bat () {
   if [[ "$STATE1" == "discharging" || "$STATE2" == "empty" ]]; then
   wait_ac_dual_bat
   fi
+  }
 
 # IF THE DEVICE WASN'T PLUGGED INTO AC WE WAIT FOR AC
 wait_ac () {
