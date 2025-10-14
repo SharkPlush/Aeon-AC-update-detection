@@ -68,7 +68,7 @@ wait_ac () {
   tu_dup
   break
   fi
-  done < <(gdbus monitor --system --dest org.freedesktop.UPower --object-path "$BATTERY_PATH" | grep -oE "'State': <uint32 (1|4|5)>")
+  done < <(gdbus monitor --system --dest org.freedesktop.UPower --object-path "$BATTERY_PATH" | grep -m1 -oE "'State': <uint32 (1|4|5)>")
   }
   
 # THE UPDATE COMMAND
