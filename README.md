@@ -19,6 +19,12 @@ Main features:
  - Support devices with multiple batteries though I have no idea how they work. (In beta)
    - If someone can, please help me test dual battery devices as I don't have one! You can open new issues here or contact me directly on Discord: SharkPlushy Matrix: @blahajshark:matrix.org
 
+What needs testing in the dual battery beta:
+
+ - Does gdbus stop after the service ends?
+ - What happens after the service starts and a battery gets unplugged?
+ - What happens if the internal battery is empty and you put in a charged secondary battery (all this after the service starts)
+
 To install run `sudo ./installer.sh`
 
 To uninstall run `sudo ./uninstaller.sh`
