@@ -105,7 +105,7 @@ wait_ac () {
   tu_dup
   break
   fi
-  done < <(gdbus monitor --system --dest org.freedesktop.UPower --object-path "$BATTERY_PATH" | grep -m1 -oE "'State': <uint32 (1|4|5)>")
+  done < <(gdbus monitor --system --dest org.freedesktop.UPower --object-path "$BATTERY_PATH" | grep -oE "'State': <uint32 (1|4|5)>")
   }
   
 wait_ac_dual_bat () {
@@ -121,14 +121,14 @@ wait_ac_dual_bat () {
   done < <({
     gdbus monitor --system --dest org.freedesktop.UPower --object-path "$BATTERY1" &
     gdbus monitor --system --dest org.freedesktop.UPower --object-path "$BATTERY2"
-  } | grep -m1 -oE "'State': <uint32 (1|4|5)>'")
+  } | grep -oE "'State': <uint32 (1|4|5)>'")
   }
   
 # THE UPDATE COMMAND
 tu_dup() {
 
   # WE WAIT 20 SECONDS BEFORE STARTING THE UPDATE SO IF THE USER RESUMES FROM SLEEP THEY HAVE TIME TO CONNECT TO WI-FI
-  sleep 20
+  sleep 30
   transactional-update cleanup ${UPDATE_METHOD} reboot
   }
   
