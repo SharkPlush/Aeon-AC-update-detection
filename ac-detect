@@ -9,26 +9,26 @@ detect_device_type () {
   if [[ "$CHASSIS" =~ ^(8|9|10|11)$ ]]; then
   
   # IF THE DEVICE IS A MOBILE DEVICE WE CHECK IF A BATTERY TRULY EXISTS AS SOME USERS TAKE THEM OUT
-  BATTERY_PATH="$(upower -e | grep -E 'BAT')"
-  if [[ -n "$BATTERY_PATH" ]]; then
-  BATTERY_COUNT=$(echo "$BATTERY_PATH" | wc -l)
+  mapfile -t batteries < <(upower -e | awk '/BAT/')
+  BATTERY_COUNT=${#batteries[@]}
   
   # IF ONE BATTERY GETS DETECTED THEN WE SET "DEVICE_TYPE" TO "battery"
-  if [[ $BATTERY_COUNT -eq 1 ]]; then
+  if [[ "$BATTERY_COUNT" -eq 1 ]]; then
+  BATTERY_PATH="${batteries[0]}"
   echo "Device has a battery"
   DEVICE_TYPE="battery"
   update_logic
   
   # IF DUAL BATTERIES GETS DETECTED THEN WE SET "DEVICE_TYPE" TO "dual_battery"
-  elif [[ $BATTERY_COUNT -eq 2 ]]; then
-  BATTERY1=$(echo "$BATTERY_PATH" | sed -n '1p')
-  BATTERY2=$(echo "$BATTERY_PATH" | sed -n '2p')
+  elif [[ "$BATTERY_COUNT" -eq 2 ]]; then
+  BATTERY1="${batteries[0]}"
+  BATTERY2="${batteries[1]}"
   echo "Device has dual batteries"
   DEVICE_TYPE="dual_battery"
   update_logic_dual_bat
 
   # IF THE DEVICE IS A MOBILE DEVICE BUT WITHOUT A BATTERY WE SET "DEVICE_TYPE" TO "no_battery" 
-  elif
+  elif [[ "$BATTERY_COUNT" -eq 0 ]]; then
   echo "Mobile device detected without battery"
   DEVICE_TYPE="no_battery"
   update_logic
@@ -80,17 +80,14 @@ update_logic_dual_bat () {
   STATE2=$(upower -i "$BATTERY2" | awk '/state:/ {print $2}')
   fi
   
-  if [[ "$STATE1" =~ ^(charging|fully-charged|pending-charge)$ || "$STATE2" =~ ^(charging|fully-charged|pending-charge)$ ]]; then
+  if [[ "$STATE1" =~ ^(charging|fully-charged|pending-charge)$ && "$STATE2" =~ ^(empty|charging|fully-charged|pending-charge)$ ]]; then
   echo "Device is plugged in, starting update"
   tu_dup
   fi
   
-  if [[ "$STATE1" =~ ^(empty|fully-charged|pending-charge)$ || "$STATE2" == "discharging" ]]; then
+  if [[ "$STATE1" =~ ^(discharging|empty)$ && "$STATE2" =~ ^(discharging|empty)$ ]]; then
   wait_ac_dual_bat
-  fi
-  
-  if [[ "$STATE1" == "discharging" || "$STATE2" == "empty" ]]; then
-  wait_ac_dual_bat
+  return
   fi
   }
 
@@ -127,7 +124,7 @@ wait_ac_dual_bat () {
 # THE UPDATE COMMAND
 tu_dup() {
 
-  # WE WAIT 20 SECONDS BEFORE STARTING THE UPDATE SO IF THE USER RESUMES FROM SLEEP THEY HAVE TIME TO CONNECT TO WI-FI
+  # WE WAIT 30 SECONDS BEFORE STARTING THE UPDATE SO IF THE USER RESUMES FROM SLEEP THEY HAVE TIME TO CONNECT TO WI-FI
   sleep 30
   transactional-update cleanup ${UPDATE_METHOD} reboot
   }
