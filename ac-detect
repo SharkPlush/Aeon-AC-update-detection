@@ -118,7 +118,7 @@ wait_ac_dual_bat () {
   done < <({
     gdbus monitor --system --dest org.freedesktop.UPower --object-path "$BATTERY1" &
     gdbus monitor --system --dest org.freedesktop.UPower --object-path "$BATTERY2"
-  } | grep -m1 -oE "'State': <uint32 (1|4|5)>'")
+  } | grep -m1 -oE "'State': <uint32 (1|4|5)>")
   }
   
 # THE UPDATE COMMAND
