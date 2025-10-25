@@ -5,8 +5,7 @@ detect_device_type () {
   
   # WE DETECT WHAT KIND OF DEVICE THIS IS (Technically we don't have to detect the type of device since we check for a battery anyways but I'd rather have the check for extra accuracy.)
   echo "Detecting device type"
-  CHASSIS=$(< /sys/class/dmi/id/chassis_type)
-  if [[ "$CHASSIS" =~ ^(8|9|10|11)$ ]]; then
+  if [[ $(< /sys/class/dmi/id/chassis_type) =~ ^(8|9|10|11|14|31|32)$ ]]; then
   
   # IF THE DEVICE IS A MOBILE DEVICE WE CHECK IF A BATTERY TRULY EXISTS AS SOME USERS TAKE THEM OUT
   mapfile -t batteries < <(upower -e | awk '/BAT/')
@@ -16,29 +15,26 @@ detect_device_type () {
   if [[ "$BATTERY_COUNT" -eq 1 ]]; then
   BATTERY_PATH="${batteries[0]}"
   echo "Device has a battery"
-  DEVICE_TYPE="battery"
   update_logic
   
   # IF DUAL BATTERIES GETS DETECTED THEN WE SET "DEVICE_TYPE" TO "dual_battery"
   elif [[ "$BATTERY_COUNT" -eq 2 ]]; then
-  BATTERY1="${batteries[0]}"
-  BATTERY2="${batteries[1]}"
+  BATTERY0="${batteries[0]}"
+  BATTERY1="${batteries[1]}"
   echo "Device has dual batteries"
-  DEVICE_TYPE="dual_battery"
   update_logic_dual_bat
 
   # IF THE DEVICE IS A MOBILE DEVICE BUT WITHOUT A BATTERY WE SET "DEVICE_TYPE" TO "no_battery" 
   elif [[ "$BATTERY_COUNT" -eq 0 ]]; then
   echo "Mobile device detected without battery"
-  DEVICE_TYPE="no_battery"
-  update_logic
+  tu_dup
   fi
     
   # IF THE DEVICE ISN'T A BATTERY DEVICE IT GETS THE "no_battery" DEVICE TYPE  
   else 
   echo "Device doesn't have a battery"
   DEVICE_TYPE="no_battery"
-  update_logic
+  tu_dup
   fi
   }
 
@@ -46,18 +42,9 @@ detect_device_type () {
 update_logic () {
 
   echo "Starting updater"
-
-  # IF DEVICE IS A "no_battery", JUST UPDATE
-  if [[ "$DEVICE_TYPE" == "no_battery" ]]; then
-  tu_dup
-  fi
-
-  # IF THE DEVICE HAS A BATTERY WE CHECK THE BATTERY STATE
-  if [[ "$DEVICE_TYPE" == "battery" ]]; then
   
   # WE MEASURE IF THE BATTERY IS ON AC POWER OR NOT
   STATE=$(upower -i "$BATTERY_PATH" | awk '/state:/ {print $2}')
-  fi
    
   # IF ITS ON AC WE UPDATE
   if [[ "$STATE" =~ ^(charging|pending-charge|fully-charged)$ ]]; then
@@ -72,20 +59,17 @@ update_logic () {
 
 update_logic_dual_bat () {
 
-  # IF THE DEVICE HAS DUAL BATTERIES WE CHECK THE BATTERY STATES
-  if [[ "$DEVICE_TYPE" == "dual_battery" ]]; then
-  
   # WE MEASURE IF THE BATTERIES ARE ON AC POWER OR NOT
+  STATE0=$(upower -i "$BATTERY0" | awk '/state:/ {print $2}')
   STATE1=$(upower -i "$BATTERY1" | awk '/state:/ {print $2}')
-  STATE2=$(upower -i "$BATTERY2" | awk '/state:/ {print $2}')
   fi
   
-  if [[ "$STATE1" =~ ^(charging|fully-charged|pending-charge)$ && "$STATE2" =~ ^(empty|charging|fully-charged|pending-charge)$ ]]; then
+  if [[ "$STATE0" =~ ^(charging|fully-charged|pending-charge)$ && "$STATE1" =~ ^(empty|charging|fully-charged|pending-charge)$ ]]; then
   echo "Device is plugged in, starting update"
   tu_dup
   fi
   
-  if [[ "$STATE1" =~ ^(discharging|empty)$ && "$STATE2" =~ ^(discharging|empty)$ ]]; then
+  if [[ "$STATE0" =~ ^(discharging|empty)$ && "$STATE1" =~ ^(discharging|empty)$ ]]; then
   wait_ac_dual_bat
   return
   fi
@@ -116,8 +100,8 @@ wait_ac_dual_bat () {
   break
   fi
   done < <({
-    gdbus monitor --system --dest org.freedesktop.UPower --object-path "$BATTERY1" &
-    gdbus monitor --system --dest org.freedesktop.UPower --object-path "$BATTERY2"
+    gdbus monitor --system --dest org.freedesktop.UPower --object-path "$BATTERY0" &
+    gdbus monitor --system --dest org.freedesktop.UPower --object-path "$BATTERY1"
   } | grep -m1 -oE "'State': <uint32 (1|4|5)>")
   }
   
