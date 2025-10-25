@@ -54,24 +54,32 @@ update_logic () {
   # IF AC IS UNPLUGGED WE WAIT FOR AC POWER
   elif [[ "$STATE" == "discharging" ]]; then
   wait_ac
+
+  # THIS IS JUST IN CASE THE BATTERY STATE IS SOMETHING COMPLETELY UNEXPECTED!
+  else
+  echo "Unexpected battery state: $STATE exiting.."
+  exit 1
   fi
   }
-
+  
 update_logic_dual_bat () {
+
+  echo "Starting updater"
 
   # WE MEASURE IF THE BATTERIES ARE ON AC POWER OR NOT
   STATE0=$(upower -i "$BATTERY0" | awk '/state:/ {print $2}')
   STATE1=$(upower -i "$BATTERY1" | awk '/state:/ {print $2}')
-  fi
   
   if [[ "$STATE0" =~ ^(charging|fully-charged|pending-charge)$ && "$STATE1" =~ ^(empty|charging|fully-charged|pending-charge)$ ]]; then
   echo "Device is plugged in, starting update"
   tu_dup
-  fi
   
-  if [[ "$STATE0" =~ ^(discharging|empty)$ && "$STATE1" =~ ^(discharging|empty)$ ]]; then
+  elif [[ "$STATE0" =~ ^(discharging|empty)$ && "$STATE1" =~ ^(discharging|empty)$ ]]; then
   wait_ac_dual_bat
-  return
+  
+  else
+  echo "A battery is in an unexpected state! Battery 0: $STATE0 Battery 1: $STATE1 exiting.."
+  exit 1
   fi
   }
 
