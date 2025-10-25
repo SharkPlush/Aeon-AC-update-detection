@@ -5,46 +5,34 @@ detect_device_type () {
   
   # WE DETECT WHAT KIND OF DEVICE THIS IS (Technically we don't have to detect the type of device since we check for a battery anyways but I'd rather have the check for extra accuracy.)
   echo "Detecting device type"
-  CHASSIS=$(< /sys/class/dmi/id/chassis_type)
-  if [[ "$CHASSIS" =~ ^(8|9|10|11)$ ]]; then
+  if [[ $(< /sys/class/dmi/id/chassis_type) =~ ^(8|9|10|11|14|31|32)$ ]]; then
   
   # IF THE DEVICE IS A MOBILE DEVICE WE CHECK IF A BATTERY TRULY EXISTS AS SOME USERS TAKE THEM OUT
   BATTERY_PATH=$(upower -e | grep -E 'BAT')
   if [[ -n "$BATTERY_PATH" ]]; then
   echo "Device has a battery"
-  DEVICE_TYPE="battery"
   update_logic
   
+  # IF THE MOBILE DEVICE DOESN'T HAVE A BATTERY WE JUST UPDATE
   else
   echo "Mobile device detected without battery"
-  DEVICE_TYPE="no_battery"
-  update_logic
+  tu_dup
   fi
     
-  # IF THE DEVICE ISN'T A BATTERY DEVICE IT GETS THE "no_battery" DEVICE TYPE  
+  # IF THE DEVICE ISN'T DETECTED AS A MOBILE DEVICE THEN WE JUST UPDATE
   else 
   echo "Device doesn't have a battery"
-  DEVICE_TYPE="no_battery"
-  update_logic
+  tu_dup
   fi
   }
 
-# THIS JUST DETERMINES WHAT TO DO ONCE THE TYPE OF DEVICE HAS BEEN ESTABLISHED
+# THIS JUST DETERMINES WHAT TO DO ONCE WE THE DEVICE HAS A BATTERY
 update_logic () {
 
   echo "Starting updater"
-
-  # IF DEVICE IS A "no_battery", JUST UPDATE
-  if [[ "$DEVICE_TYPE" == "no_battery" ]]; then
-  tu_dup
-  fi
-
-  # IF THE DEVICE HAS A BATTERY WE CHECK THE BATTERY STATE
-  if [[ "$DEVICE_TYPE" == "battery" ]]; then
   
   # WE MEASURE IF THE BATTERY IS ON AC POWER OR NOT
   STATE=$(upower -i "$BATTERY_PATH" | awk '/state:/ {print $2}')
-  fi
    
   # IF ITS ON AC WE UPDATE
   if [[ "$STATE" =~ ^(charging|pending-charge|fully-charged)$ ]]; then
@@ -54,6 +42,16 @@ update_logic () {
   # IF AC IS UNPLUGGED WE WAIT FOR AC POWER
   elif [[ "$STATE" == "discharging" ]]; then
   wait_ac
+  
+  # IF BATTERY STATE IS UNKNOWN WE EXIT FOR SAFETY REASONS
+  elif [[ "$STATE" == "unknown" ]]; then
+  echo "Battery status cannot be determined, exiting.."
+  exit 1
+  
+  # THIS IS JUST IN CASE THE BATTERY STATE IS SOMETHING COMPLETELY UNEXPECTED!
+  else
+  echo "Unexpected battery state: $STATE exiting.."
+  exit 1
   fi
   }
 
