@@ -15,6 +15,8 @@ Main features:
  - No polling.
 
  TODO:
+ 
+ - If the the battery state is unknown create a fallback.
 
  - Support devices with multiple batteries though I have no idea how they work.
    - In beta https://github.com/SharkPlush/Aeon-AC-update-detection/tree/Multi-Battery-Beta (read the desc on the beta page)

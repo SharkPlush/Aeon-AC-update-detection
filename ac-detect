@@ -42,12 +42,7 @@ update_logic () {
   # IF AC IS UNPLUGGED WE WAIT FOR AC POWER
   elif [[ "$STATE" == "discharging" ]]; then
   wait_ac
-  
-  # IF BATTERY STATE IS UNKNOWN WE EXIT FOR SAFETY REASONS
-  elif [[ "$STATE" == "unknown" ]]; then
-  echo "Battery status cannot be determined, exiting.."
-  exit 1
-  
+
   # THIS IS JUST IN CASE THE BATTERY STATE IS SOMETHING COMPLETELY UNEXPECTED!
   else
   echo "Unexpected battery state: $STATE exiting.."
