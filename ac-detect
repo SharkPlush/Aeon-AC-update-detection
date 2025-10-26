@@ -86,31 +86,38 @@ update_logic_dual_bat () {
 # IF THE DEVICE WASN'T PLUGGED INTO AC WE WAIT FOR AC
 wait_ac () {
   echo "Device is unplugged, waiting for AC power"
-  while read line; do
-  if [[ "$line" =~ ^("'State': <uint32 1>"|"'State': <uint32 4>"|"'State': <uint32 5>")$ ]]; then
+  read -r line < <(gdbus monitor --system --dest org.freedesktop.UPower --object-path "$BATTERY_PATH" | grep -m1 -oE "'State': <uint32 (1|4|5)>")
+  if [[ "$line" =~ ^\'State\':\ \<uint32\ (1|4|5)\>$ ]]; then
 
   # ONCE AC IS DETECTED THE UPDATE TRIGGERS
   echo "Device is plugged in, starting update"
   tu_dup
-  break
+  
+  # IF THE OUTPUT IS ANYTHING OTHER THAN 1/4/5 WE EXIT (Normally this is impossible but I'm adding this just in case)
+  else
+  echo "Unexpected battery state: $line exiting.."
+  exit 1
   fi
-  done < <(gdbus monitor --system --dest org.freedesktop.UPower --object-path "$BATTERY_PATH" | grep -m1 -oE "'State': <uint32 (1|4|5)>")
   }
   
 wait_ac_dual_bat () {
   echo "Device is unplugged, waiting for AC power"
-  while read line; do
-  if [[ "$line" =~ ^("'State': <uint32 1>"|"'State': <uint32 4>"|"'State': <uint32 5>")$ ]]; then
+  read -r line < <( cat <(gdbus monitor --system --dest org.freedesktop.UPower --object-path "$BATTERY0" ) \
+                        <(gdbus monitor --system --dest org.freedesktop.UPower --object-path "$BATTERY1" ) \
+                    | grep -m1 -oE "'State': <uint32 (1|4|5)>"
+                  )
+                    
+  if [[ "$line" =~ ^\'State\':\ \<uint32\ (1|4|5)\>$ ]]; then
 
   # ONCE AC IS DETECTED THE UPDATE TRIGGERS
   echo "Device is plugged in, starting update"
   tu_dup
-  break
+  
+  # IF THE OUTPUT IS ANYTHING OTHER THAN 1/4/5 WE EXIT (Normally this is impossible but I'm adding this just in case)
+  else
+  echo "Unexpected battery state: $line exiting.."
+  exit 1
   fi
-  done < <({
-    gdbus monitor --system --dest org.freedesktop.UPower --object-path "$BATTERY0" &
-    gdbus monitor --system --dest org.freedesktop.UPower --object-path "$BATTERY1"
-  } | grep -m1 -oE "'State': <uint32 (1|4|5)>")
   }
   
 # THE UPDATE COMMAND
