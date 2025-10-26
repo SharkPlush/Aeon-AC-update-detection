@@ -74,7 +74,8 @@ wait_ac () {
   }
   
 fallback_update_logic () {
-
+  echo "Starting updater in fallback mode"
+  
   # WE FIND THE AC POWER PATH
   LINE_POWER_PATH=$(upower -e | grep -E 'line_power')
   
