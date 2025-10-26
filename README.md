@@ -13,10 +13,9 @@ Main features:
  - PC detection.
  - Good battery detection, if you remove the battery from your device the script will know. If you put the battery back into your device it'll know!
  - No polling.
+ - If you have a bad BIOS or battery (third party) then a built in fallback mode should take care of that.
 
  TODO:
- 
- - If the the battery state is unknown create a fallback.
 
  - Support devices with multiple batteries though I have no idea how they work.
    - In beta https://github.com/SharkPlush/Aeon-AC-update-detection/tree/Multi-Battery-Beta (read the desc on the beta page)

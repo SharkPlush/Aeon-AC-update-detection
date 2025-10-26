@@ -9,6 +9,8 @@ detect_device_type () {
   
   # IF THE DEVICE IS A MOBILE DEVICE WE CHECK IF A BATTERY TRULY EXISTS AS SOME USERS TAKE THEM OUT
   BATTERY_PATH=$(upower -e | grep -E 'BAT')
+  
+  # IF A BATTERY IS DETECTED WE MOVE ON TO update_logic
   if [[ -n "$BATTERY_PATH" ]]; then
   echo "Device has a battery"
   update_logic
@@ -26,9 +28,8 @@ detect_device_type () {
   fi
   }
 
-# THIS JUST DETERMINES WHAT TO DO ONCE WE THE DEVICE HAS A BATTERY
+# THIS JUST DETERMINES WHAT TO DO ONCE WE DETECT THE DEVICE HAS A BATTERY
 update_logic () {
-
   echo "Starting updater"
   
   # WE MEASURE IF THE BATTERY IS ON AC POWER OR NOT
@@ -42,6 +43,11 @@ update_logic () {
   # IF AC IS UNPLUGGED WE WAIT FOR AC POWER
   elif [[ "$STATE" == "discharging" ]]; then
   wait_ac
+  
+  # IF THE STATE IS UNKNOWN WE TRY FALLBACK MODE
+  elif [[ "$STATE" == "unknown" ]]; then
+  echo "Battery state is unknown trying fallback mode"
+  fallback_update_logic
 
   # THIS IS JUST IN CASE THE BATTERY STATE IS SOMETHING COMPLETELY UNEXPECTED!
   else
@@ -63,6 +69,46 @@ wait_ac () {
   # IF THE OUTPUT IS ANYTHING OTHER THAN 1/4/5 WE EXIT (Normally this is impossible but I'm adding this just in case)
   else
   echo "Unexpected battery state: $line exiting.."
+  exit 1
+  fi
+  }
+  
+fallback_update_logic () {
+
+  # WE FIND THE AC POWER PATH
+  LINE_POWER_PATH=$(upower -e | grep -E 'line_power')
+  
+  # WE MEASURE IF THE BATTERY IS ON AC POWER OR NOT
+  FALLBACK_STATE=$(upower -i "$LINE_POWER_PATH" | awk '/online:/ {print $2}')
+  
+  # IF ITS ON AC WE UPDATE
+  if [[ "$FALLBACK_STATE" == "yes" ]]; then
+  echo "Device is plugged in, starting update in fallback mode"
+  tu_dup
+  
+  # IF AC IS UNPLUGGED WE WAIT FOR AC POWER
+  elif [[ "$FALLBACK_STATE" == "no" ]]; then
+  fallback_wait_ac
+  
+  # THIS IS JUST IN CASE THE AC STATE IS SOMETHING COMPLETELY UNEXPECTED!
+  else
+  echo "Couldn't figure out if your system is plugged in here's the output of "upower -i "$LINE_POWER_PATH"": $FALLBACK_STATE good luck.."
+  exit 1
+  fi
+  }
+  
+fallback_wait_ac () {
+  echo "Device is unplugged, waiting for AC power in fallback mode"
+  read -r line < <(gdbus monitor --system --dest org.freedesktop.UPower --object-path "$LINE_POWER_PATH" | grep -m1 -oE "'Online': <true>")
+  if [[ $line =~ ^\'Online\':\ \<(true)\>$ ]]; then
+  
+  # ONCE AC IS DETECTED THE UPDATE TRIGGERS
+  echo "Device is plugged in, starting update in fallback mode"
+  tu_dup
+  
+  # IF THE OUTPUT IS ANYTHING OTHER THAN "true" WE EXIT (Normally this is impossible but I'm adding this just in case)
+  else
+  echo "Unexpected AC state: $line exiting.. (What?)"
   exit 1
   fi
   }
