@@ -23,5 +23,3 @@ Main features:
 To install run `sudo ./installer.sh`
 
 To uninstall run `sudo ./uninstaller.sh`
-
-test
