@@ -30,3 +30,5 @@ What needs testing in the dual battery beta:
 To install run `sudo ./installer.sh`
 
 To uninstall run `sudo ./uninstaller.sh`
+
+test
