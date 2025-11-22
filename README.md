@@ -13,13 +13,17 @@ How the wrapper works:
   1. The wrapper check if the device you have is a mobile device or a PC.
   2. If its a PC the wrapper will just update your PC.
   3. If its a mobile device the wrapper check if its on AC power currently. If it is it will trigger an update.
-  4. If the mobile device is off AC power then it will wait for AC power in the background, once plugged in an update will be triggered. (No more failed systemd service if the device wasn't plugged in when it was triggered)
-
+  4. If the mobile device is off AC power then it will wait for AC power in the background, once plugged in an update will be triggered.
+  
+  - Laptops with removed batteries will be treated as always plugged in and update without issues, if you do put a battery into the laptop the script will adapt to that and function as intended.
+  
+  - The wrapper technically doesn't need PC detection since it only checks for AC power and obviously if its able to check then the PC is plugged in, BUT I don't know how UPS batteries work and I think there is a chance that it can function like a laptop would where the battery is keeping the PC on without the AC status being true.
+  
 Main features:
  
  - PC detection.
  - No polling.
- - Dual battery laptop support!
+ - Multi-battery laptop support!
 
  TODO:
 
