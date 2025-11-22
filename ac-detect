@@ -1,125 +1,45 @@
 #!/bin/bash
-
-# DETECTION IF THE DEVICE IS A LAPTOP OR NOT
-detect_device_type () {
-  
-  # WE DETECT WHAT KIND OF DEVICE THIS IS (Technically we don't have to detect the type of device since we check for a battery anyways but I'd rather have the check for extra accuracy.)
-  echo "Detecting device type"
-  if [[ $(< /sys/class/dmi/id/chassis_type) =~ ^(8|9|10|11|14|31|32)$ ]]; then
-  
-  # IF THE DEVICE IS A MOBILE DEVICE WE CHECK IF A BATTERY TRULY EXISTS AS SOME USERS TAKE THEM OUT
-  BATTERY_PATH=$(upower -e | grep -E 'BAT')
-  
-  # IF A BATTERY IS DETECTED WE MOVE ON TO update_logic
-  if [[ -n "$BATTERY_PATH" ]]; then
-  echo "Device has a battery"
-  update_logic
-  
-  # IF THE MOBILE DEVICE DOESN'T HAVE A BATTERY WE JUST UPDATE
-  else
-  echo "Mobile device detected without battery"
-  tu_dup
-  fi
+# Created by SharkPlush on GitHub
+# https://github.com/SharkPlush
+# Licensed under CC BY-NC 4.0.
+set -euo pipefail
+logic () {
+    if [[ $(< /sys/class/dmi/id/chassis_type) =~ ^(8|9|10|11|14|31|32)$ ]]; then # WE NEED TO DETECT THE DEVICE TYPE TO AVOID FALSE POSITIVES
+      echo "Detected a mobile device"
+      
+      LINE_POWER_PATH=$(upower -e | grep -E 'line_power') # WE FIND THE LINE_POWER PATH
+      if [[ -z $LINE_POWER_PATH ]]; then
+        # IF THE PATH IS MISSING UPDATE WITH WARNINGS AND AC STATUS WILL BE UNDETECTABLE
+        echo "Can't find the line power path so AC status is undetermined, running update in 30 seconds but something might be wrong.."
+        sleep 30
+        transactional-update cleanup ${UPDATE_METHOD} reboot
+      fi
+      
+      if [[ $(upower -i "$LINE_POWER_PATH" | awk '/online:/ {print $2}') == "yes" ]]; then
+        echo "Device is plugged in, starting update in 30 seconds.." # IF THE DEVICE IS PLUGGED IN WE UPDATE
+        sleep 30
+        transactional-update cleanup ${UPDATE_METHOD} reboot
+      
+      elif [[ $(upower -i "$LINE_POWER_PATH" | awk '/online:/ {print $2}') == "no" ]]; then
+        echo "Device is unplugged waiting for AC power.." # IF THE DEVICE IS UNPLUGGED WE "wait_ac"
+        wait_ac
+      fi  
     
-  # IF THE DEVICE ISN'T DETECTED AS A MOBILE DEVICE THEN WE JUST UPDATE
-  else 
-  echo "Device doesn't have a battery"
-  tu_dup
-  fi
-  }
-
-# THIS JUST DETERMINES WHAT TO DO ONCE WE DETECT THE DEVICE HAS A BATTERY
-update_logic () {
-  echo "Starting updater"
+    else
+      echo "Device isn't a mobile device, starting update in 30 seconds.." # IF THE DEVICE TYPE IS A PC WE JUST UPDATE
+      sleep 30
+      transactional-update cleanup ${UPDATE_METHOD} reboot
+    fi
+}
   
-  # WE MEASURE IF THE BATTERY IS ON AC POWER OR NOT
-  STATE=$(upower -i "$BATTERY_PATH" | awk '/state:/ {print $2}')
-   
-  # IF ITS ON AC WE UPDATE
-  if [[ "$STATE" =~ ^(charging|pending-charge|fully-charged)$ ]]; then
-  echo "Device is plugged in, starting update"
-  tu_dup
-  
-  # IF AC IS UNPLUGGED WE WAIT FOR AC POWER
-  elif [[ "$STATE" == "discharging" ]]; then
-  wait_ac
-  
-  # IF THE STATE IS UNKNOWN WE TRY FALLBACK MODE
-  elif [[ "$STATE" == "unknown" ]]; then
-  echo "Battery state is unknown trying fallback mode"
-  fallback_update_logic
-
-  # THIS IS JUST IN CASE THE BATTERY STATE IS SOMETHING COMPLETELY UNEXPECTED!
-  else
-  echo "Unexpected battery state: $STATE exiting.."
-  exit 1
-  fi
-  }
-
-# IF THE DEVICE WASN'T PLUGGED INTO AC WE WAIT FOR AC
 wait_ac () {
-  echo "Device is unplugged, waiting for AC power"
-  read -r line < <(gdbus monitor --system --dest org.freedesktop.UPower --object-path "$BATTERY_PATH" | grep -m1 -oE "'State': <uint32 (1|4|5)>")
-  if [[ $line =~ ^\'State\':\ \<uint32\ (1|4|5)\>$ ]]; then
-
-  # ONCE AC IS DETECTED THE UPDATE TRIGGERS
-  echo "Device is plugged in, starting update"
-  tu_dup
-  
-  # IF THE OUTPUT IS ANYTHING OTHER THAN 1/4/5 WE EXIT (Normally this is impossible but I'm adding this just in case)
+  if [[ $(busctl wait org.freedesktop.UPower $LINE_POWER_PATH org.freedesktop.DBus.Properties PropertiesChanged | grep -m1 -oE "true") == "true" ]]; then
+    echo "Device is plugged in, starting update in 30 seconds.."
+    sleep 30
+    transactional-update cleanup ${UPDATE_METHOD} reboot
   else
-  echo "Unexpected battery state: $line exiting.."
-  exit 1
+    echo "The AC state was unexpected, exiting.."
+    exit 1
   fi
-  }
-  
-fallback_update_logic () {
-  echo "Starting updater in fallback mode"
-  
-  # WE FIND THE AC POWER PATH
-  LINE_POWER_PATH=$(upower -e | grep -E 'line_power')
-  
-  # WE MEASURE IF THE BATTERY IS ON AC POWER OR NOT
-  FALLBACK_STATE=$(upower -i "$LINE_POWER_PATH" | awk '/online:/ {print $2}')
-  
-  # IF ITS ON AC WE UPDATE
-  if [[ "$FALLBACK_STATE" == "yes" ]]; then
-  echo "Device is plugged in, starting update in fallback mode"
-  tu_dup
-  
-  # IF AC IS UNPLUGGED WE WAIT FOR AC POWER
-  elif [[ "$FALLBACK_STATE" == "no" ]]; then
-  fallback_wait_ac
-  
-  # THIS IS JUST IN CASE THE AC STATE IS SOMETHING COMPLETELY UNEXPECTED!
-  else
-  echo "Couldn't figure out if your system is plugged in here's the output of "upower -i "$LINE_POWER_PATH"": $FALLBACK_STATE good luck.."
-  exit 1
-  fi
-  }
-  
-fallback_wait_ac () {
-  echo "Device is unplugged, waiting for AC power in fallback mode"
-  read -r line < <(gdbus monitor --system --dest org.freedesktop.UPower --object-path "$LINE_POWER_PATH" | grep -m1 -oE "'Online': <true>")
-  if [[ $line =~ ^\'Online\':\ \<(true)\>$ ]]; then
-  
-  # ONCE AC IS DETECTED THE UPDATE TRIGGERS
-  echo "Device is plugged in, starting update in fallback mode"
-  tu_dup
-  
-  # IF THE OUTPUT IS ANYTHING OTHER THAN "true" WE EXIT (Normally this is impossible but I'm adding this just in case)
-  else
-  echo "Unexpected AC state: $line exiting.. (What?)"
-  exit 1
-  fi
-  }
-  
-# THE UPDATE COMMAND
-tu_dup() {
-
-  # WE WAIT 30 SECONDS BEFORE STARTING THE UPDATE SO IF THE USER RESUMES FROM SLEEP THEY HAVE TIME TO CONNECT TO WI-FI
-  sleep 30
-  transactional-update cleanup ${UPDATE_METHOD} reboot
-  }
-  
-detect_device_type
+}
+logic
