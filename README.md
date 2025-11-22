@@ -10,10 +10,10 @@ How the wrapper works:
 
  - Once the transactional-update.service gets triggered it will execute /usr/sbin/transactional-update, this wrapper replace that with /usr/local/ac-detect
  - The service gets triggered and executes the wrapper.
-  - The wrapper check if the device you have is a mobile device or a PC.
-  - If its a PC the wrapper will just update your PC.
-  - If its a mobile device the wrapper check if its on AC power currently. If it is it will trigger an update.
-  - If the mobile device is off AC power then it will wait for AC power in the background, once plugged in an update will be triggered. (No more failed systemd service if the device wasn't plugged in when it was triggered)
+  1. The wrapper check if the device you have is a mobile device or a PC.
+  2. If its a PC the wrapper will just update your PC.
+  3. If its a mobile device the wrapper check if its on AC power currently. If it is it will trigger an update.
+  4. If the mobile device is off AC power then it will wait for AC power in the background, once plugged in an update will be triggered. (No more failed systemd service if the device wasn't plugged in when it was triggered)
 
 Main features:
  
