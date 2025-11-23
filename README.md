@@ -57,6 +57,7 @@ To uninstall run:
 ```console
 aeon@localhost:~> sudo ./uninstaller.sh
 ```
+As the sole copyright holder, I hereby permanently and irrevocably waive the requirements in Section 3(a)(1)(A)(i) (attribution/credit) and Section 3(a)(1)(B) (indication of modifications) of the CC BY-NC 4.0 license for this work. You are not required to credit me or list any changes, although both are appreciated. All other terms, including the NonCommercial restriction (no commercial use allowed), remain in full effect.
 
 Shield: [![CC BY-NC 4.0][cc-by-nc-shield]][cc-by-nc]
 

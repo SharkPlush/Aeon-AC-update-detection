@@ -1,41 +1,45 @@
 #!/bin/bash
 # Created by SharkPlush on GitHub
 # https://github.com/SharkPlush
-# Licensed under CC BY-NC 4.0.
+# Copyright 2025 SharkPlush
+# Licensed under CC BY-NC 4.0 with attribution & change-indication requirements permanently waived by the author.
+# No credit or change log required (appreciated though). Commercial use still forbidden.
+# Full license: https://github.com/SharkPlush/Aeon-AC-update-detection/blob/main/LICENSE
+# Report any issues to https://github.com/SharkPlush/Aeon-AC-update-detection/issues with logs.
 set -euo pipefail
 logic () {
-    if [[ $(< /sys/class/dmi/id/chassis_type) =~ ^(8|9|10|11|14|31|32)$ ]]; then # WE NEED TO DETECT THE DEVICE TYPE TO AVOID FALSE POSITIVES
-      echo "Detected a mobile device"
+  if [[ $(< /sys/class/dmi/id/chassis_type) =~ ^(8|9|10|11|14|31|32)$ ]]; then # WE NEED TO DETECT THE DEVICE TYPE TO AVOID FALSE POSITIVES
+    echo "Detected a mobile device"
       
-      mapfile -t LINE_POWER_PATHS < <(upower -e | grep -E 'line_power') # WE FIND ALL THE AVAILABLE "line_power" PATHS
-        if [[ ${#LINE_POWER_PATHS[@]} -eq 0 ]]; then # IF THE PATH/s IS/ARE MISSING, UPDATE WITH WARNINGS AND AC STATUS WILL BE UNDETECTABLE
-          echo "Can't find the line power path/s so AC status is undetermined, updating in 30 seconds anyways but something might be wrong.."
-          sleep 30
-          transactional-update cleanup ${UPDATE_METHOD} reboot
-        fi
+    mapfile -t LINE_POWER_PATHS < <(upower -e | grep -E 'line_power') # WE FIND ALL THE AVAILABLE "line_power" PATHS
+      if [[ ${#LINE_POWER_PATHS[@]} -eq 0 ]]; then # IF THE PATH/s IS/ARE MISSING, UPDATE WITH WARNINGS AND AC STATUS WILL BE UNDETECTABLE
+        echo "Can't find the line power path/s so AC status is undetermined, updating in 30 seconds anyways but something might be wrong.."
+        sleep 30
+        transactional-update cleanup ${UPDATE_METHOD} reboot
+      fi
       
-      AC_POWER=foo
-      for LINE_POWER_PATH in "${LINE_POWER_PATHS[@]}"; do
-        if [[ $(upower -i "$LINE_POWER_PATH" | awk '/online:/ {print $2}') == "yes" ]]; then
-          AC_POWER=yes
-          break
-        fi
-      done
+    AC_POWER=foo
+    for LINE_POWER_PATH in "${LINE_POWER_PATHS[@]}"; do
+      if [[ $(upower -i "$LINE_POWER_PATH" | awk '/online:/ {print $2}') == "yes" ]]; then
+        AC_POWER=yes
+        break
+      fi
+    done
         
-        if [[ "$AC_POWER" == "yes" ]]; then
-          echo "Device is plugged in, starting update in 30 seconds.." # IF THE DEVICE IS PLUGGED IN WE UPDATE
-          sleep 30
-          transactional-update cleanup ${UPDATE_METHOD} reboot
-        else
-          echo "Device is unplugged waiting for AC power.." # IF THE DEVICE IS UNPLUGGED WE "wait_ac"
-          wait_ac
-        fi  
+      if [[ "$AC_POWER" == "yes" ]]; then
+        echo "Device is plugged in, starting update in 30 seconds.." # IF THE DEVICE IS PLUGGED IN WE UPDATE
+        sleep 30
+        transactional-update cleanup ${UPDATE_METHOD} reboot
+      else
+        echo "Device is unplugged waiting for AC power.." # IF THE DEVICE IS UNPLUGGED WE "wait_ac"
+        wait_ac
+      fi  
     
-    else
-      echo "Device isn't a mobile device, starting update in 30 seconds.." # IF THE DEVICE TYPE IS A PC WE JUST UPDATE
-      sleep 30
-      transactional-update cleanup ${UPDATE_METHOD} reboot
-    fi
+  else
+    echo "Device isn't a mobile device, starting update in 30 seconds.." # IF THE DEVICE TYPE IS A PC WE JUST UPDATE
+    sleep 30
+    transactional-update cleanup ${UPDATE_METHOD} reboot
+  fi
 }
   
 wait_ac () {
