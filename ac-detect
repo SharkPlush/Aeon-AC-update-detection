@@ -7,23 +7,29 @@ logic () {
     if [[ $(< /sys/class/dmi/id/chassis_type) =~ ^(8|9|10|11|14|31|32)$ ]]; then # WE NEED TO DETECT THE DEVICE TYPE TO AVOID FALSE POSITIVES
       echo "Detected a mobile device"
       
-      LINE_POWER_PATH=$(upower -e | grep -E 'line_power') # WE FIND THE LINE_POWER PATH
-      if [[ -z $LINE_POWER_PATH ]]; then
-        # IF THE PATH IS MISSING UPDATE WITH WARNINGS AND AC STATUS WILL BE UNDETECTABLE
-        echo "Can't find the line power path so AC status is undetermined, running update in 30 seconds but something might be wrong.."
-        sleep 30
-        transactional-update cleanup ${UPDATE_METHOD} reboot
-      fi
+      mapfile -t LINE_POWER_PATHS < <(upower -e | grep -E 'line_power') # WE FIND ALL THE AVAILABLE "line_power" PATHS
+        if [[ ${#LINE_POWER_PATHS[@]} -eq 0 ]]; then # IF THE PATH/s IS/ARE MISSING, UPDATE WITH WARNINGS AND AC STATUS WILL BE UNDETECTABLE
+          echo "Can't find the line power path/s so AC status is undetermined, updating in 30 seconds anyways but something might be wrong.."
+          sleep 30
+          transactional-update cleanup ${UPDATE_METHOD} reboot
+        fi
       
-      if [[ $(upower -i "$LINE_POWER_PATH" | awk '/online:/ {print $2}') == "yes" ]]; then
-        echo "Device is plugged in, starting update in 30 seconds.." # IF THE DEVICE IS PLUGGED IN WE UPDATE
-        sleep 30
-        transactional-update cleanup ${UPDATE_METHOD} reboot
-      
-      elif [[ $(upower -i "$LINE_POWER_PATH" | awk '/online:/ {print $2}') == "no" ]]; then
-        echo "Device is unplugged waiting for AC power.." # IF THE DEVICE IS UNPLUGGED WE "wait_ac"
-        wait_ac
-      fi  
+      AC_POWER=foo
+      for LINE_POWER_PATH in "${LINE_POWER_PATHS[@]}"; do
+        if [[ $(upower -i "$LINE_POWER_PATH" | awk '/online:/ {print $2}') == "yes" ]]; then
+          AC_POWER=yes
+          break
+        fi
+      done
+        
+        if [[ "$AC_POWER" == "yes" ]]; then
+          echo "Device is plugged in, starting update in 30 seconds.." # IF THE DEVICE IS PLUGGED IN WE UPDATE
+          sleep 30
+          transactional-update cleanup ${UPDATE_METHOD} reboot
+        else
+          echo "Device is unplugged waiting for AC power.." # IF THE DEVICE IS UNPLUGGED WE "wait_ac"
+          wait_ac
+        fi  
     
     else
       echo "Device isn't a mobile device, starting update in 30 seconds.." # IF THE DEVICE TYPE IS A PC WE JUST UPDATE
@@ -33,13 +39,19 @@ logic () {
 }
   
 wait_ac () {
-  if [[ $(busctl wait org.freedesktop.UPower $LINE_POWER_PATH org.freedesktop.DBus.Properties PropertiesChanged | grep -m1 -oE "true") == "true" ]]; then
-    echo "Device is plugged in, starting update in 30 seconds.."
-    sleep 30
-    transactional-update cleanup ${UPDATE_METHOD} reboot
-  else
-    echo "The AC state was unexpected, exiting.."
-    exit 1
-  fi
+  for LINE_POWER_PATH in "${LINE_POWER_PATHS[@]}"; do
+    AC_STATUS=$(busctl wait org.freedesktop.UPower $LINE_POWER_PATH org.freedesktop.DBus.Properties PropertiesChanged | grep -m1 -oE "(true|false)")
+    if [[ "$AC_STATUS" == "true" ]]; then
+      echo "Device is plugged in, starting update in 30 seconds.."
+      sleep 30
+      transactional-update cleanup ${UPDATE_METHOD} reboot
+    elif [[ "$AC_STATUS" == "false" ]]; then
+      echo "Device got plugged after logic determined it was unplugged but before wait_ac started"
+      wait_ac
+    else
+      echo "The AC state was unexpected, exiting.."
+      exit 1
+    fi
+  done
 }
 logic

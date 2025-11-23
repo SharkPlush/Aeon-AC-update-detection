@@ -1,3 +1,12 @@
+This branch is meant as a testing ground for devices with multiple "line_power_" adapters.
+
+Please help testing the following:
+
+    - Does the wrapper start multiple busctl instances for each adapter?
+    - Does the update start when an adapter sees AC power?
+    - If you plug in a charger while the wrapper waits for AC power into both adapters what happens? (Only do this if your laptop actually supports this otherwise hardware could be damaged)
+    - After the wrapper stops and the systemd service stops do all busctl instances stops?
+
 DISCLAIMER: This isn't affilated with Aeon Desktop in anyway! If you install this don't expect any help from the Aeon community!
 
 NOTE: This is mostly untested, so if you are willing to test or better yet provide fixes / optimizations feel free to do so.
