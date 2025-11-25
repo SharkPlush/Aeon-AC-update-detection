@@ -7,61 +7,50 @@
 # Full license: https://github.com/SharkPlush/Aeon-AC-update-detection/blob/main/LICENSE
 # Report any issues to https://github.com/SharkPlush/Aeon-AC-update-detection/issues with logs.
 set -euo pipefail
-logic () {
-  if [[ $(< /sys/class/dmi/id/chassis_type) =~ ^(8|9|10|11|14|31|32)$ ]]; then # WE NEED TO DETECT THE DEVICE TYPE TO AVOID FALSE POSITIVES
-    echo "Detected a mobile device"
-      
-    LPP=$(upower -e | grep -E 'line_power') # WE FIND THE LINE_POWER PATH
+check_device () {
+  if [[ $(< /sys/class/dmi/id/chassis_type) =~ ^(8|9|10|11|14|31|32)$ ]]; then
+    echo "Detected a mobile device." 
+    LPP=$(upower -e | grep -E 'line_power')
+    
     if [[ -z "$LPP" ]]; then
-      # IF THE PATH IS MISSING UPDATE WITH WARNINGS AND AC STATUS WILL BE UNDETECTABLE
-      echo "Can't find the line power path so AC status is undetermined, running update in 30 seconds but something might be wrong.."
+      echo "Can't find the line power path so AC status is undetermined, something might be wrong.."
+      exit 1
+      
+    else
+      check_ac_status
+    fi      
+ 
+  else
+    echo "Device isn't a mobile device."
+    sleep 30
+    transactional-update cleanup "${UPDATE_METHOD}" reboot
+  fi
+}
+      
+check_ac_status () {      
+  LPS=$(upower -i "$LPP" | awk '/online:/ {print $2}')
+  if [[ "$LPS" == "no" ]]; then
+    echo "Device is unplugged waiting for AC power.."
+    # RACE CONDITION HERE IF USER PLUGS IN AT THIS EXACT TIME (see issue 1 on GH)
+    LPS=$(busctl wait org.freedesktop.UPower "$LPP" org.freedesktop.DBus.Properties PropertiesChanged | grep -m1 -oE "(true|false)")
+    if [[ "$LPS" == "true" ]]; then
+      echo "Device is plugged in, starting update in 30 seconds..."
       sleep 30
       transactional-update cleanup "${UPDATE_METHOD}" reboot
+      
+    elif [[ "$LPS" == "false" ]]; then
+      echo "Device got plugged after logic determined it was unplugged but before busctl started."
+      exit 1 
     fi
       
-    LPS=$(upower -i "$LPP" | awk '/online:/ {print $2}') # WE FIGURE OUT THE LINE_POWER STATE
-    if [[ "$LPS" == "yes" ]]; then
-      echo "Device is plugged in, starting update in 30 seconds.." # IF THE DEVICE IS PLUGGED IN WE UPDATE
-      sleep 30
-      transactional-update cleanup "${UPDATE_METHOD}" reboot
-      
-    elif [[ "$LPS" == "no" ]]; then
-      echo "Device is unplugged waiting for AC power.." # IF THE DEVICE IS UNPLUGGED WE "wait_ac"
-      wait_ac
-        
-    else
-      # IF THE STATE ISN'T YES OR NO WE JUST UPDATE WITH WARNINGS
-      echo "Unexpected AC status, running update in 30 seconds but something might be wrong.."
-      sleep 30
-      transactional-update cleanup "${UPDATE_METHOD}" reboot
-      fi
-    
-  else
-    echo "Device isn't a mobile device, starting update in 30 seconds.." # IF THE DEVICE TYPE IS A PC WE JUST UPDATE
+  elif [[ "$LPS" == "yes" ]]; then
+    echo "Device is plugged in, starting update in 30 seconds..."
     sleep 30
     transactional-update cleanup "${UPDATE_METHOD}" reboot
-  fi
-}
-  
-wait_ac () {
-  LPS=$(busctl wait org.freedesktop.UPower "$LPP" org.freedesktop.DBus.Properties PropertiesChanged | grep -m1 -oE "(true|false)")
-  if [[ "$LPS" == "true" ]]; then
-    echo "Device is plugged in, starting update in 30 seconds.."
-    sleep 30
-    transactional-update cleanup "${UPDATE_METHOD}" reboot
-      
-  elif [[ "$LPS" == "false" ]]; then
-    echo "Device got plugged after logic determined it was unplugged but before wait_ac started" # CHANCES OF THIS HAPPENING ARE SLIM BUT NOT IMPOSSIBLE
-    wait_ac
-      
-  else
-    echo "The AC state was unexpected, running update in 30 seconds but something might be wrong.." 
-    sleep 30
-    transactional-update cleanup "${UPDATE_METHOD}" reboot
-  fi
-}
-logic
 
-# WE RUN UPDATES ON ERROR BECAUSE IT LIKELY A DRIVER ISSUE AND AN UPDATE CAN FIX THAT
-# WE SLEEP FOR 30 SECONDS BEFORE AN UPDATE BECAUSE WHEN WAKING UP FROM SLEEP THERE IS NO INTERNET CONNECTION FOR A LITTLE BIT
-# The wrapper technically doesn't need PC detection since it only checks for AC power and obviously if its able to check then the PC is plugged in, BUT I don't know how UPS batteries work and I think there is a chance that it can function like a laptop would where the battery is keeping the PC on without the AC status being true/yes.
+  else
+    echo "The AC state was unexpected, something might be wrong.." 
+    exit 1
+  fi
+}
+check_device
