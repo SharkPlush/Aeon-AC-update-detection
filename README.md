@@ -1,11 +1,6 @@
 This branch is meant as a testing ground for devices with multiple "line_power_" adapters.
 
-Please help testing the following:
-
-    - Does the wrapper start multiple busctl instances for each adapter?
-    - Does the update start when an adapter sees AC power?
-    - If you plug in a charger while the wrapper waits for AC power into both adapters what happens? (Only do this if your laptop actually supports this otherwise hardware could be damaged)
-    - After the wrapper stops and the systemd service stops do all busctl instances stops?
+The potential problems of using this branch: https://github.com/SharkPlush/Bash-AC-Power-Detection/issues/2#issuecomment-3585303129
 
 DISCLAIMER: This isn't affilated with Aeon Desktop in anyway! If you install this don't expect any help from the Aeon community!
 
@@ -33,18 +28,6 @@ Main features:
  - PC detection.
  - No polling.
  - Multi-battery laptop support!
-
- TODO:
-
- - The script cannot handle devices with multiple "line_power_" I don't know how to fix this would like some help please.
-
-WARNING: Before installing please check:
-
-```console
-aeon@localhost:~> upower -e
-```
-
-If you have multiple "line_power_" outputs the script will probably not work. (If you can fix this please see TODO)
 
 To install run:
 
