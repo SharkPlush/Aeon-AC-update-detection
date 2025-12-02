@@ -1,6 +1,6 @@
 This branch is meant as a testing ground for devices with multiple "line_power_" adapters.
 
-The potential problems of using this branch: https://github.com/SharkPlush/Bash-AC-Power-Detection/issues/2#issuecomment-3585303129
+This branch is basically ready for usage but I'm not fully confident merging into main without: https://github.com/SharkPlush/Bash-AC-Power-Detection/issues/2#issuecomment-3602283311
 
 DISCLAIMER: This isn't affilated with Aeon Desktop in anyway! If you install this don't expect any help from the Aeon community!
 
