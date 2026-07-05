@@ -12,3 +12,4 @@ if ! systemd-ac-power; then
 	{ udevadm monitor --subsystem-match=power_supply -p -k & sleep 0.01; systemd-ac-power -v || true; } | grep -m1 -qE "POWER_SUPPLY_ONLINE=1|yes"
 fi
 printf "Device is plugged in.\n"
+sleep 30
