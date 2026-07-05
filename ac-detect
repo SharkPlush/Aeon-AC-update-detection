@@ -1,37 +1,14 @@
 #!/bin/bash
 # Created by SharkPlush on GitHub
 # https://github.com/SharkPlush
-# Copyright 2025 SharkPlush
+# Copyright 2025-2026 SharkPlush
 # Licensed under CC BY-NC 4.0 with attribution & change-indication requirements permanently waived by the author.
 # No credit or change log required (appreciated though). Commercial use still forbidden.
 # Full license: https://github.com/SharkPlush/Aeon-AC-update-detection/blob/main/LICENSE
 # Report any issues to https://github.com/SharkPlush/Aeon-AC-update-detection/issues with logs.
 set -euo pipefail
-check_device () {
-  if [[ "$(< /sys/class/dmi/id/chassis_type)" =~ ^(8|9|10|11|14|31|32)$ ]]; then
-    echo "Detected a mobile device." 
-    check_ac_status
-
-  else
-    echo "Device isn't a mobile device, starting update in 30 seconds.."
-    sleep 30
-    transactional-update cleanup ${UPDATE_METHOD} reboot
-  fi
-}
-    
-check_ac_status () { 
-  if [[ "$(systemd-ac-power -v)" == "no" ]]; then
-    echo "Device is unplugged waiting for AC power.."
-    if [[ "$(grep -m1 -oE "(POWER_SUPPLY_ONLINE=1|yes)" <(systemd-ac-power -v & udevadm monitor --subsystem-match=power_supply -p -k))" =~ ^(POWER_SUPPLY_ONLINE=1|yes)$ ]]; then
-      echo "Device is plugged in, starting update in 30 seconds.."
-      sleep 30
-      transactional-update cleanup ${UPDATE_METHOD} reboot
-    fi
-
-  else
-    echo "Device is plugged in, starting update in 30 seconds.."
-    sleep 30
-    transactional-update cleanup ${UPDATE_METHOD} reboot
-  fi
-}
-check_device
+if ! systemd-ac-power; then
+	printf "Device is unplugged waiting for AC power..\n"
+	{ udevadm monitor --subsystem-match=power_supply -p -k & sleep 0.01; systemd-ac-power -v || true; } | grep -m1 -qE "POWER_SUPPLY_ONLINE=1|yes"
+fi
+printf "Device is plugged in.\n"
